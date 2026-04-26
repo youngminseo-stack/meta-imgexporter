@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta Ad Exporter</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d0d0f;--paper:#f5f4f0;--paper2:#eeede8;--paper3:#e5e4de;
+  --line:#d0cfc8;--line2:#b8b7b0;
+  --tx:#1a1a1c;--tx2:#6b6b70;--tx3:#a8a8b0;
+  --ac:#e63e2a;--ac2:#ff5540;--ac-d:rgba(230,62,42,.08);
+  --gr:#1a9e5c;--gr-d:rgba(26,158,92,.08);
+  --am:#e67e22;
+  --r:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--tx);font-size:13px}
+
+/* ── LANDING ── */
+.landing{display:flex;align-items:stretch;min-height:100vh}
+.landing-left{width:45%;background:var(--ink);display:flex;flex-direction:column;justify-content:space-between;padding:52px 48px;position:relative;overflow:hidden}
+.landing-left::before{content:'';position:absolute;top:-60px;right:-60px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(255,255,255,.06)}
+.landing-left::after{content:'';position:absolute;bottom:40px;left:-80px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,.04)}
+.landing-brand{font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:.9;color:#fff;letter-spacing:1px}
+.landing-brand span{color:var(--ac2)}
+.landing-desc{color:rgba(255,255,255,.45);font-size:13px;line-height:1.7;margin-top:16px;max-width:280px}
+.landing-features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.6);font-size:12px}
+.feat-dot{width:6px;height:6px;border-radius:50%;background:var(--ac2);flex-shrink:0}
+.landing-footer{color:rgba(255,255,255,.2);font-size:11px;font-family:'DM Mono',monospace}
+
+.landing-right{flex:1;display:flex;align-items:center;justify-content:center;padding:48px}
+.login-card{width:100%;max-width:400px}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.5px;margin-bottom:6px}
+.login-sub{color:var(--tx2);font-size:12px;margin-bottom:32px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.field label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx2)}
+.field input{background:var(--paper2);border:1.5px solid var(--line);border-radius:var(--r);color:var(--tx);padding:10px 13px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border .15s}
+.field input:focus{border-color:var(--ink);background:#fff}
+.field input::placeholder{color:var(--tx3)}
+.login-btn{width:100%;padding:12px;border-radius:var(--r);border:none;background:var(--ink);color:#fff;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;transition:all .15s;letter-spacing:.02em}
+.login-btn:hover{background:#222}
+.login-err{font-size:11px;color:var(--ac);margin-top:8px;display:none}
+
+/* ── APP ── */
+.app{display:none;flex-direction:column;height:100vh;overflow:hidden}
+
+/* topbar */
+.topbar{height:52px;background:#fff;border-bottom:1.5px solid var(--line);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
+.top-brand{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;color:var(--ink)}
+.top-brand span{color:var(--ac)}
+.top-divider{width:1px;height:20px;background:var(--line)}
+.top-info{font-size:11px;color:var(--tx2);font-family:'DM Mono',monospace}
+.top-spacer{flex:1}
+.top-pill{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--gr-d);color:var(--gr);font-weight:600;border:1px solid rgba(26,158,92,.2)}
+.top-logout{font-size:11px;color:var(--tx3);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all .1s}
+.top-logout:hover{color:var(--tx);background:var(--paper2)}
+
+/* layout */
+.app-body{flex:1;display:flex;overflow:hidden}
+
+/* sidebar */
+.sidebar{width:300px;min-width:300px;border-right:1.5px solid var(--line);display:flex;flex-direction:column;background:#fff;overflow:hidden}
+.sb-section{padding:16px;border-bottom:1px solid var(--line)}
+.sb-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:10px}
+
+/* campaign search */
+.camp-search-wrap{position:relative}
+.camp-search{width:100%;background:var(--paper2);border:1.5px solid var(--line);border-radius:var(--r);color:var(--tx);padding:8px 12px 8px 32px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border .12s}
+.camp-search:focus{border-color:var(--ink);background:#fff}
+.camp-search::placeholder{color:var(--tx3)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:14px;pointer-events:none}
+
+.camp-list{flex:1;overflow-y:auto;padding:8px}
+.camp-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);cursor:pointer;transition:background .1s;margin-bottom:2px}
+.camp-item:hover{background:var(--paper2)}
+.camp-item.active{background:var(--ac-d);border:1px solid rgba(230,62,42,.15)}
+.camp-item.active .camp-name{color:var(--ac);font-weight:600}
+.camp-cb{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--line2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px}
+.camp-item.active .camp-cb{background:var(--ac);border-color:var(--ac);color:#fff}
+.camp-name{font-size:12px;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.camp-badge{font-size:9px;padding:2px 6px;border-radius:10px;text-transform:uppercase;font-weight:600;flex-shrink:0}
+.ba{background:var(--gr-d);color:var(--gr)}
+.bp{background:rgba(230,126,34,.08);color:var(--am)}
+.bo{background:var(--paper3);color:var(--tx3)}
+
+.sb-load-btn{width:100%;padding:9px;border-radius:var(--r);border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.sb-load-btn:hover{background:var(--ink);color:#fff}
+.sb-load-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* export panel */
+.exp-panel{padding:16px}
+.fmt-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fmt-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);border:1.5px solid var(--line);cursor:pointer;transition:all .12s}
+.fmt-item:hover{border-color:var(--line2);background:var(--paper2)}
+.fmt-item.checked{border-color:var(--ink);background:var(--paper2)}
+.fmt-item input{accent-color:var(--ink);cursor:pointer;width:13px;height:13px;flex-shrink:0}
+.fmt-ico{font-size:15px;width:20px;text-align:center}
+.fmt-info b{color:var(--tx);font-size:12px;font-weight:600;display:block}
+.fmt-info span{color:var(--tx3);font-size:10px}
+.exp-btn{width:100%;padding:11px;border-radius:var(--r);border:none;background:var(--ac);color:#fff;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s}
+.exp-btn:hover{background:var(--ac2)}
+.exp-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--paper)}
+.main-toolbar{padding:12px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.filter-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1.5px solid var(--line);background:transparent;color:var(--tx2);font-family:'DM Sans',sans-serif;transition:all .1s}
+.filter-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.main-search{flex:1;max-width:240px;background:var(--paper2);border:1.5px solid var(--line);border-radius:20px;color:var(--tx);padding:5px 13px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none}
+.main-search:focus{border-color:var(--ink);background:#fff}
+.info-txt{font-size:11px;color:var(--tx3);margin-left:auto}
+
+.sel-bar{background:var(--ink);color:#fff;padding:10px 20px;display:none;align-items:center;gap:12px;font-size:12px;flex-shrink:0}
+.sel-bar.on{display:flex}
+.sel-bar-sp{flex:1}
+.sel-bar button{padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.sel-bar button:hover{background:rgba(255,255,255,.1)}
+
+.main-content{flex:1;overflow-y:auto;padding:16px 20px}
+
+/* table */
+.ad-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ad-table thead th{background:var(--ink);color:rgba(255,255,255,.7);padding:10px 14px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.ad-table thead th:first-child{width:40px;text-align:center}
+.ad-table tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:background .08s}
+.ad-table tbody tr:last-child{border-bottom:none}
+.ad-table tbody tr:hover{background:var(--paper2)}
+.ad-table tbody tr.sel{background:var(--ac-d)}
+.ad-table td{padding:10px 14px;vertical-align:middle}
+.ad-table td:first-child{text-align:center}
+.row-chk{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;font-size:9px}
+.sel .row-chk{background:var(--ac);border-color:var(--ac);color:#fff}
+.ad-thumb{width:48px;height:48px;object-fit:cover;border-radius:5px;display:block}
+.no-thumb{width:48px;height:48px;border-radius:5px;background:var(--paper3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--tx3)}
+.ad-title{font-weight:600;font-size:12px;color:var(--tx);max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-meta{font-size:11px;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+.ad-sub{font-size:11px;color:var(--tx2);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-camp{font-size:11px;color:var(--tx3);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-tag{font-size:9px;padding:3px 7px;border-radius:10px;font-weight:700;text-transform:uppercase;white-space:nowrap}
+
+/* load more */
+.load-more-row{padding:16px;text-align:center}
+.load-more-btn{padding:9px 24px;border-radius:20px;border:1.5px solid var(--line);background:#fff;color:var(--tx2);font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .12s}
+.load-more-btn:hover{border-color:var(--ink);color:var(--ink)}
+
+/* empty */
+.empty{padding:60px 20px;text-align:center;color:var(--tx3)}
+.empty-ico{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-t{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--tx2);margin-bottom:6px;letter-spacing:.5px}
+.empty-d{font-size:12px;line-height:1.7}
+
+/* modal */
+.modal-wrap{display:none;position:fixed;inset:0;background:rgba(13,13,15,.7);backdrop-filter:blur(8px);z-index:200;align-items:center;justify-content:center}
+.modal-wrap.on{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;width:420px;max-width:94vw;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 60px rgba(0,0,0,.2)}
+.modal-t{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px}
+.modal-d{font-size:12px;color:var(--tx2);line-height:1.6}
+.prog-wrap{height:4px;background:var(--paper3);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--ac);border-radius:2px;transition:width .3s}
+.prog-row{display:flex;align-items:center;gap:10px}
+.prog-pct{font-size:11px;color:var(--tx3);width:32px;text-align:right;flex-shrink:0;font-family:'DM Mono',monospace}
+.prog-msg{font-size:11px;color:var(--tx3);margin-top:3px;min-height:16px}
+.modal-cls{padding:10px;border-radius:var(--r);border:1.5px solid var(--line);background:transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:none;margin-top:4px;transition:all .12s}
+.modal-cls:hover{background:var(--paper2)}
+
+.sp-i{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--ac);border-radius:50%;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ── LANDING ── -->
+<div class="landing" id="landing">
+  <div class="landing-left">
+    <div>
+      <div class="landing-brand">Meta<br><span>Ad</span><br>Exporter</div>
+      <div class="landing-desc">Meta 광고 소재를 선택해서 HTML 리포트, 엑셀, PPT로 한 번에 내보내는 툴.</div>
+    </div>
+    <div class="landing-features">
+      <div class="feat"><div class="feat-dot"></div>광고주 공유용 라이브 HTML 리포트</div>
+      <div class="feat"><div class="feat-dot"></div>소재명 + 이미지 삽입 엑셀</div>
+      <div class="feat"><div class="feat-dot"></div>6개씩 슬라이드 PPT 보고자료</div>
+      <div class="feat"><div class="feat-dot"></div>Instagram 미리보기 스크린샷 캡처</div>
+    </div>
+    <div class="landing-footer">META GRAPH API v23.0 · RAILWAY POWERED</div>
+  </div>
+  <div class="landing-right">
+    <div class="login-card">
+      <div class="login-title">시작하기</div>
+      <div class="login-sub">아래 정보를 입력하면 바로 광고를 불러옵니다.</div>
+      <div class="field">
+        <label>Railway 서버 URL</label>
+        <input type="text" id="l-server" placeholder="https://xxxx.railway.app"/>
+      </div>
+      <div class="field">
+        <label>Meta Access Token</label>
+        <input type="password" id="l-tok" placeholder="EAAxxxxxxxx..."/>
+      </div>
+      <div class="field">
+        <label>Ad Account ID</label>
+        <input type="text" id="l-acc" placeholder="act_123456789"/>
+      </div>
+      <button class="login-btn" onclick="doLogin()" id="login-btn">
+        <span id="login-icon">→</span> 연결하기
+      </button>
+      <div class="login-err" id="login-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="top-brand">Meta <span>Ad</span> Exporter</div>
+    <div class="top-divider"></div>
+    <div class="top-info" id="top-info">-</div>
+    <div class="top-spacer"></div>
+    <div class="top-pill" id="top-count">광고 0개</div>
+    <div class="top-logout" onclick="logout()">로그아웃</div>
+  </div>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-section">
+        <div class="sb-label">캠페인 선택</div>
+        <div class="camp-search-wrap">
+          <span class="search-icon">⌕</span>
+          <input class="camp-search" id="camp-search" placeholder="캠페인명 검색..." oninput="filterCamps()"/>
+        </div>
+      </div>
+
+      <div class="camp-list" id="camp-list">
+        <div style="padding:20px 8px;text-align:center;color:var(--tx3);font-size:12px">캠페인 로딩 중...</div>
+      </div>
+
+      <div class="sb-section">
+        <button class="sb-load-btn" id="load-btn" onclick="loadAds()" disabled>
+          <span id="load-icon">↓</span> 선택한 캠페인 광고 불러오기
+        </button>
+      </div>
+
+      <div class="exp-panel">
+        <div class="sb-label">내보내기 형식</div>
+        <div class="fmt-row">
+          <label class="fmt-item checked" id="fi-html">
+            <input type="checkbox" id="fmt-html" checked onchange="toggleFmt('fi-html',this)"/>
+            <span class="fmt-ico">🔗</span>
+            <span class="fmt-info"><b>라이브 HTML</b><span>광고주 공유용</span></span>
+          </label>
+          <label class="fmt-item checked" id="fi-xl">
+            <input type="checkbox" id="fmt-excel" checked onchange="toggleFmt('fi-xl',this)"/>
+            <span class="fmt-ico">📊</span>
+            <span class="fmt-info"><b>엑셀</b><span>소재명+이미지, 데이터용</span></span>
+          </label>
+          <label class="fmt-item checked" id="fi-ppt">
+            <input type="checkbox" id="fmt-ppt" checked onchange="toggleFmt('fi-ppt',this)"/>
+            <span class="fmt-ico">📑</span>
+            <span class="fmt-info"><b>PPT</b><span>6개씩 슬라이드, 보고용</span></span>
+          </label>
+        </div>
+        <button class="exp-btn" id="exp-btn" onclick="startExport()" disabled>📸 내보내기</button>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="main-toolbar" id="main-toolbar" style="display:none">
+        <button class="filter-btn on" onclick="setF('all',this)">전체</button>
+        <button class="filter-btn" onclick="setF('ACTIVE',this)">🟢 ACTIVE</button>
+        <button class="filter-btn" onclick="setF('PAUSED',this)">⏸ PAUSED</button>
+        <input class="main-search" id="main-search" placeholder="광고명 / 세트명 검색..." oninput="renderTable()"/>
+        <div class="info-txt" id="info-txt"></div>
+      </div>
+
+      <div class="sel-bar" id="sel-bar">
+        <span><b id="sel-cnt">0</b>개 선택됨</span>
+        <div class="sel-bar-sp"></div>
+        <button onclick="selAll()">전체선택</button>
+        <button onclick="selNone()">선택해제</button>
+      </div>
+
+      <div class="main-content">
+        <div id="empty" class="empty">
+          <div class="empty-ico">📋</div>
+          <div class="empty-t">광고를 불러오세요</div>
+          <div class="empty-d">왼쪽에서 캠페인을 선택하고<br>"광고 불러오기" 버튼을 누르세요.</div>
+        </div>
+
+        <table class="ad-table" id="ad-table" style="display:none">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)" style="cursor:pointer;accent-color:#fff"/></th>
+              <th>썸네일</th>
+              <th>광고명 (소재명)</th>
+              <th>광고 세트</th>
+              <th>캠페인</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+
+        <div class="load-more-row" id="load-more-row" style="display:none">
+          <button class="load-more-btn" id="load-more-btn" onclick="loadMore()">↓ 30개 더 불러오기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-wrap" id="mwrap">
+  <div class="modal">
+    <div class="modal-t" id="mt">처리 중...</div>
+    <div class="modal-d" id="md"></div>
+    <div>
+      <div class="prog-row">
+        <div class="prog-wrap" style="flex:1"><div class="prog-fill" id="pf" style="width:0%"></div></div>
+        <div class="prog-pct" id="pp">0%</div>
+      </div>
+      <div class="prog-msg" id="pm"></div>
+    </div>
+    <button class="modal-cls" id="mcls" onclick="closeModal()">닫기</button>
+  </div>
+</div>
+
+<script>
+const g=id=>document.getElementById(id), W=window;
+let camps=[], selCamps=new Set(), ads=[], sel=new Set(), curF='all', nextCursor=null, loading=false;
+
+// ── LOGIN ──
+async function doLogin(){
+  const server=g('l-server').value.trim().replace(/\/$/,'');
+  const tok=g('l-tok').value.trim();
+  const acc=g('l-acc').value.trim();
+  if(!server||!tok||!acc){showErr('모든 항목을 입력하세요.');return;}
+  const aid=acc.startsWith('act_')?acc:'act_'+acc;
+  g('login-icon').innerHTML='<span class="sp-i"></span>';
+  g('login-btn').disabled=true;
+  g('login-err').style.display='none';
+  try{
+    // 캠페인 로드
+    let url=`https://graph.facebook.com/v23.0/${aid}/campaigns?fields=id,name,status&limit=100&access_token=${tok}`;
+    let allCamps=[];
+    while(url&&allCamps.length<500){
+      const r=await fetch(url); const d=await r.json();
+      if(d.error) throw new Error(d.error.message);
+      allCamps=allCamps.concat(d.data||[]); url=d.paging?.next||null;
+    }
+    W.tok=tok; W.aid=aid; W.server=server;
+    camps=allCamps;
+    // 전환
+    g('landing').style.display='none';
+    g('app').style.display='flex';
+    g('top-info').textContent=aid;
+    renderCampList();
+  }catch(e){showErr('연결 실패: '+e.message.slice(0,60));}
+  finally{g('login-icon').textContent='→';g('login-btn').disabled=false;}
+}
+function showErr(msg){g('login-err').textContent=msg;g('login-err').style.display='block';}
+function logout(){g('app').style.display='none';g('landing').style.display='flex';camps=[];selCamps.clear();ads=[];sel.clear();}
+
+// ── CAMP LIST ──
+function renderCampList(){
+  const q=(g('camp-search').value||'').toLowerCase();
+  const list=camps.filter(c=>!q||c.name.toLowerCase().includes(q));
+  const cl=g('camp-list');
+  if(!list.length){cl.innerHTML='<div style="padding:20px 8px;text-align:center;color:var(--tx3);font-size:12px">검색 결과 없음</div>';return;}
+  cl.innerHTML=list.map(c=>{
+    const active=selCamps.has(c.id);
+    const bc=c.status==='ACTIVE'?'ba':c.status==='PAUSED'?'bp':'bo';
+    return `<div class="camp-item ${active?'active':''}" onclick="toggleCamp('${c.id}')">
+      <div class="camp-cb">${active?'✓':''}</div>
+      <div class="camp-name" title="${c.name}">${c.name}</div>
+      <span class="camp-badge ${bc}">${c.status==='ACTIVE'?'ON':c.status==='PAUSED'?'OFF':'—'}</span>
+    </div>`;
+  }).join('');
+}
+function filterCamps(){renderCampList();}
+function toggleCamp(id){
+  selCamps.has(id)?selCamps.delete(id):selCamps.add(id);
+  g('load-btn').disabled=selCamps.size===0;
+  renderCampList();
+}
+
+// ── LOAD ADS ──
+async function loadAds(){
+  if(!selCamps.size) return;
+  loading=true; ads=[]; sel.clear(); nextCursor=null;
+  g('load-icon').innerHTML='<span class="sp-i"></span>';
+  g('load-btn').disabled=true;
+  g('empty').style.display='none';
+  g('ad-table').style.display='none';
+  g('load-more-row').style.display='none';
+  g('main-toolbar').style.display='none';
+  updSel();
+  await _fetchAds(true);
+  g('load-icon').textContent='↓';
+  g('load-btn').disabled=selCamps.size===0;
+  loading=false;
+}
+
+async function _fetchAds(reset){
+  try{
+    // 선택한 캠페인들의 광고를 한꺼번에 가져오기
+    // campaign_ids 파라미터로 필터링
+    const campIds=[...selCamps].join(',');
+    let url=`https://graph.facebook.com/v23.0/${W.aid}/ads?fields=id,name,status,adset_id,adset{name},campaign_id,campaign{name},creative{thumbnail_url,image_url,object_story_spec}&filtering=[{"field":"campaign.id","operator":"IN","value":[${[...selCamps].map(id=>`"${id}"`).join(',')}]}]&limit=30`;
+    if(!reset&&nextCursor) url+=`&after=${nextCursor}`;
+    url+=`&access_token=${W.tok}`;
+
+    const r=await fetch(url); const d=await r.json();
+    if(d.error) throw new Error(d.error.message);
+
+    const newAds=(d.data||[]).map(ad=>({
+      id:ad.id, name:ad.name, status:ad.status,
+      adsetName:ad.adset?.name||'', campName:ad.campaign?.name||'',
+      thumbUrl:getThumb(ad.creative),
+    }));
+    ads=ads.concat(newAds);
+    nextCursor=d.paging?.cursors?.after||null;
+    const hasMore=!!d.paging?.next;
+
+    g('main-toolbar').style.display='flex';
+    g('ad-table').style.display='table';
+    g('load-more-row').style.display=hasMore?'block':'none';
+    g('top-count').textContent=`광고 ${ads.length}개${hasMore?' ↓':''}`;
+    renderTable();
+    if(!ads.length){g('empty').style.display='block';g('ad-table').style.display='none';}
+  }catch(e){alert('광고 불러오기 실패: '+e.message);g('empty').style.display='block';}
+}
+
+async function loadMore(){
+  if(!nextCursor||loading) return;
+  loading=true;
+  g('load-more-btn').innerHTML='<span class="sp-i"></span> 불러오는 중...';
+  await _fetchAds(false);
+  g('load-more-btn').innerHTML='↓ 30개 더 불러오기';
+  loading=false;
+}
+
+function getThumb(cr){
+  if(!cr) return '';
+  if(cr.thumbnail_url) return cr.thumbnail_url;
+  if(cr.image_url) return cr.image_url;
+  try{const s=cr.object_story_spec;return s?.video_data?.image_url||s?.link_data?.picture||'';}catch{return '';}
+}
+
+// ── TABLE ──
+function setF(f,el){curF=f;document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('on'));el.classList.add('on');renderTable();}
+function renderTable(){
+  const q=(g('main-search')?.value||'').toLowerCase();
+  let list=ads;
+  if(curF!=='all') list=list.filter(a=>a.status===curF);
+  if(q) list=list.filter(a=>a.name.toLowerCase().includes(q)||a.adsetName.toLowerCase().includes(q)||a.campName.toLowerCase().includes(q));
+  g('info-txt').textContent=`${list.length}개 표시 / 전체 ${ads.length}개`;
+  if(!list.length){g('tbody').innerHTML=`<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--tx3);font-size:12px">조건에 맞는 광고가 없습니다.</td></tr>`;return;}
+  const sc={ACTIVE:'ba',PAUSED:'bp'};
+  const sl={ACTIVE:'rgba(26,158,92,.1)',PAUSED:'rgba(230,126,34,.08)'};
+  const cl={ACTIVE:'var(--gr)',PAUSED:'var(--am)'};
+  g('tbody').innerHTML=list.map(a=>{
+    const s=sel.has(a.id), sClass=sc[a.status]||'bo';
+    const thumb=a.thumbUrl
+      ?`<img class="ad-thumb" src="${a.thumbUrl}" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="no-thumb" style="display:none">🖼</div>`
+      :`<div class="no-thumb">🖼</div>`;
+    return `<tr class="${s?'sel':''}" onclick="togRow('${a.id}')">
+      <td><div class="row-chk">${s?'✓':''}</div></td>
+      <td style="width:60px">${thumb}</td>
+      <td><div class="ad-title" title="${a.name}">${a.name}</div><div class="ad-meta" title="${a.adsetName}">${a.adsetName}</div></td>
+      <td><div class="ad-sub" title="${a.adsetName}">${a.adsetName}</div></td>
+      <td><div class="ad-camp" title="${a.campName}">${a.campName}</div></td>
+      <td><span class="status-tag" style="background:${sl[a.status]||'var(--paper3)'};color:${cl[a.status]||'var(--tx3)'}">${a.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+function togRow(id){sel.has(id)?sel.delete(id):sel.add(id);renderTable();updSel();}
+function selAll(){ads.forEach(a=>sel.add(a.id));renderTable();updSel();}
+function selNone(){sel.clear();renderTable();updSel();}
+function toggleAll(cb){cb.checked?selAll():selNone();}
+function updSel(){
+  const n=sel.size;
+  g('sel-cnt').textContent=n;
+  g('sel-bar').classList.toggle('on',n>0);
+  g('exp-btn').disabled=n===0;
+}
+function toggleFmt(id,cb){g(id).classList.toggle('checked',cb.checked);}
+
+// ── EXPORT ──
+async function startExport(){
+  const server=W.server;
+  if(!server) return alert('Railway 서버 URL이 없습니다.');
+  const formats=[];
+  if(g('fmt-html').checked) formats.push('html');
+  if(g('fmt-excel').checked) formats.push('excel');
+  if(g('fmt-ppt').checked) formats.push('ppt');
+  if(!formats.length) return alert('형식을 하나 이상 선택하세요.');
+  const list=ads.filter(a=>sel.has(a.id));
+  if(!list.length) return alert('광고를 선택하세요.');
+  g('mwrap').classList.add('on');
+  g('mt').textContent='📸 캡처 & 파일 생성 중...';
+  g('md').textContent=`Railway 서버에서 ${list.length}개 광고를 처리합니다.\n수 분이 걸릴 수 있어요.`;
+  g('mcls').style.display='none'; setProg(8,'서버 요청 중...');
+  let prog=8;
+  const iv=setInterval(()=>{if(prog<88){prog+=0.35;setProg(prog,`처리 중... (${list.length}개)`);}},1000);
+  try{
+    const resp=await fetch(`${server}/export`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:W.tok,formats,ads:list.map(a=>({id:a.id,name:a.name,status:a.status,adsetName:a.adsetName,campName:a.campName,thumbUrl:a.thumbUrl}))})
+    });
+    clearInterval(iv);
+    if(!resp.ok){const e=await resp.json().catch(()=>({error:'서버 오류'}));throw new Error(e.error||`HTTP ${resp.status}`);}
+    setProg(95,'다운로드 중...');
+    const blob=await resp.blob();
+    const a2=document.createElement('a');
+    const ts=new Date().toISOString().slice(0,16).replace('T','_').replace(':','');
+    a2.href=URL.createObjectURL(blob); a2.download=`meta_export_${ts}.zip`; a2.click();
+    setProg(100,'✅ 완료!');
+    g('mt').textContent='✅ 다운로드 완료!';
+    g('md').textContent=`${list.length}개 광고가 ZIP으로 저장됐습니다.`;
+    g('mcls').style.display='block';
+  }catch(er){
+    clearInterval(iv);
+    g('mt').textContent='❌ 오류 발생';
+    g('md').textContent=`오류: ${er.message}`;
+    g('mcls').style.display='block'; setProg(0,'');
+  }
+}
+function closeModal(){g('mwrap').classList.remove('on');}
+function setProg(pct,msg){g('pf').style.width=pct+'%';g('pp').textContent=Math.round(pct)+'%';g('pm').textContent=msg;}
+
+// enter key
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&g('landing').style.display!=='none') doLogin();});
+</script>
+</body>
+</html>
