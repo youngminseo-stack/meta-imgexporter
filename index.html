@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meta Creative Exporter</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:#07080a; --s1:#0f1013; --s2:#161820; --s3:#1e2028;
@@ -190,7 +191,7 @@ input::placeholder{color:var(--tx3)}
     <div class="tb-r">
       <button class="btn btn-g btn-sm" onclick="selAll()">전체 선택</button>
       <button class="btn btn-g btn-sm" onclick="selNone()">선택 해제</button>
-      <button class="btn btn-ex btn-sm" id="exbtn" onclick="startExport()" disabled>📥 리포트 다운로드</button>
+      <button class="btn btn-ex btn-sm" id="exbtn" onclick="startExport()" disabled>📥 엑셀 다운로드</button>
     </div>
   </div>
 
@@ -199,7 +200,7 @@ input::placeholder{color:var(--tx3)}
       <span>✓</span>
       <span><b id="scnt">0</b>개 소재 선택됨</span>
       <div style="flex:1"></div>
-      <span style="font-size:10px;color:var(--tx3)">→ 리포트 다운로드 버튼</span>
+      <span style="font-size:10px;color:var(--tx3)">→ 엑셀 다운로드 버튼</span>
     </div>
 
     <div class="fbar" id="fbar" style="display:none">
@@ -223,8 +224,8 @@ input::placeholder{color:var(--tx3)}
 <!-- Export progress modal -->
 <div class="modal-wrap" id="mwrap">
   <div class="modal">
-    <div class="modal-t" id="mt">📊 리포트 생성 중...</div>
-    <div class="modal-d" id="md">이미지를 가져오고 HTML 리포트를 만들고 있습니다.<br>창을 닫지 마세요.</div>
+    <div class="modal-t" id="mt">📊 엑셀 생성 중...</div>
+    <div class="modal-d" id="md">이미지를 가져오고 엑셀 파일을 만들고 있습니다.<br>창을 닫지 마세요.</div>
     <div>
       <div class="prog-row">
         <div class="prog-wrap" style="flex:1"><div class="prog-fill" id="pf" style="width:0%"></div></div>
@@ -287,20 +288,18 @@ async function loadCreatives(){
   items=[];sel.clear();updSel();
   try{
     const ids=[...adsets.keys()];
-    // 진행 상태 표시
-    setDot('spin','소재 불러오는 중...');
-    const [imgAll,vidAll,...adAllArr]=await Promise.all([
-      apiAll(`/${W.aid}/adimages?fields=id,hash,name,url_128,width,height,created_time&limit=200`,W.tok),
-      apiAll(`/${W.aid}/advideos?fields=id,title,picture,length,created_time&limit=200`,W.tok),
-      ...ids.map(id=>apiAll(`/${id}/ads?fields=id,name,creative{id,name,image_hash,video_id,thumbnail_url}&limit=200`,W.tok).catch(()=>[]))
+    const [imgR,vidR,...adRs]=await Promise.all([
+      api(`/${W.aid}/adimages?fields=id,hash,name,url_128,width,height,created_time&limit=200`,W.tok),
+      api(`/${W.aid}/advideos?fields=id,title,picture,length,created_time&limit=200`,W.tok),
+      ...ids.map(id=>api(`/${id}/ads?fields=id,name,creative{id,name,image_hash,video_id,thumbnail_url}&limit=200`,W.tok).catch(()=>({data:[]})))
     ]);
     const imap={},vmap={};
-    imgAll.forEach(x=>imap[x.hash]=x);
-    vidAll.forEach(x=>vmap[x.id]=x);
+    (imgR.data||[]).forEach(x=>imap[x.hash]=x);
+    (vidR.data||[]).forEach(x=>vmap[x.id]=x);
     const seen=new Set();
     ids.forEach((id,i)=>{
       const as=adsets.get(id);
-      (adAllArr[i]||[]).forEach(ad=>{
+      (adRs[i].data||[]).forEach(ad=>{
         const cr=ad.creative; if(!cr) return;
         if(cr.image_hash&&imap[cr.image_hash]){
           const img=imap[cr.image_hash], uid='i_'+cr.image_hash;
@@ -326,7 +325,7 @@ async function loadCreatives(){
     renderGrid();
     if(!items.length){g('empty').style.display='flex';g('empty').querySelector('.empty-d').textContent='선택한 광고 세트에 소재가 없습니다.';}
   }catch(er){alert('소재 불러오기 실패: '+er.message);g('empty').style.display='flex';}
-  finally{setIcon('li','↓');g('lbtn').disabled=false;setDot('ok',`연결됨 · 소재 ${items.length}개 로드`);}
+  finally{setIcon('li','↓');g('lbtn').disabled=false;}
 }
 
 // ── grid ──
@@ -354,8 +353,8 @@ function updSel(){const n=sel.size;g('scnt').textContent=n;g('selbar').classList
 function startExport(){
   if(!sel.size) return;
   g('mwrap').classList.add('on');
-  g('mt').textContent='📊 리포트 생성 중...';
-  g('md').textContent='이미지를 가져오고 HTML 리포트를 만들고 있습니다. 창을 닫지 마세요.';
+  g('mt').textContent='📊 엑셀 생성 중...';
+  g('md').textContent='이미지를 가져오고 엑셀 파일을 만들고 있습니다. 창을 닫지 마세요.';
   g('mcls').style.display='none';
   setProg(0,'준비 중...');
   doExport();
@@ -367,67 +366,104 @@ async function doExport(){
   const list=items.filter(c=>sel.has(c.id));
   const total=list.length;
 
-  // 이미지 base64 수집
+  // fetch images as base64 via canvas
   const imgMap={};
   for(let i=0;i<list.length;i++){
     const c=list[i];
-    setProg(i/total*80,`이미지 처리 중 ${i+1}/${total}: ${c.name.slice(0,28)}`);
-    if(c.thumbUrl){ try{ imgMap[c.id]=await toB64(c.thumbUrl); }catch(_){} }
-    await sleep(15);
+    setProg(i/total*65,`이미지 처리 중 ${i+1}/${total}: ${c.name.slice(0,28)}`);
+    if(c.thumbUrl){
+      try{ imgMap[c.id]=await toB64(c.thumbUrl); }catch(_){}
+    }
+    await sleep(20);
   }
 
-  setProg(85,'리포트 생성 중...');
+  setProg(70,'엑셀 파일 구성 중...');
+  await sleep(80);
+
+  // ── Build workbook ──
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: 소재 목록
+  const hdr=['캠페인명','광고 세트명','소재명','타입','Hash / Video ID','해상도','업로드 날짜'];
+  const rows=list.map(c=>[
+    c.campName, c.adsetName, c.name,
+    c.type==='image'?'이미지':'영상',
+    c.type==='image'?(c.hash||''):(c.videoId||''),
+    c.type==='image'?(c.w&&c.h?`${c.w}×${c.h}`:''):(c.duration||''),
+    fmtDate(c.created)
+  ]);
+
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[{wch:28},{wch:28},{wch:32},{wch:8},{wch:36},{wch:12},{wch:13}];
+
+  // header style
+  const hr=XLSX.utils.decode_range(ws['!ref']);
+  for(let C=hr.s.c;C<=hr.e.c;C++){
+    const ref=XLSX.utils.encode_cell({r:0,c:C});
+    if(ws[ref]) ws[ref].s={font:{bold:true,color:{rgb:'C9D1F5'}},fill:{fgColor:{rgb:'1E1E2E'}},alignment:{horizontal:'center'}};
+  }
+  // zebra
+  list.forEach((_,i)=>{
+    const fill={fgColor:{rgb: i%2===0?'F5F6FB':'FFFFFF'}};
+    hdr.forEach((__,j)=>{
+      const ref=XLSX.utils.encode_cell({r:i+1,c:j});
+      if(ws[ref]) ws[ref].s={fill,alignment:{horizontal:'left',vertical:'center'}};
+    });
+  });
+  XLSX.utils.book_append_sheet(wb,ws,'소재 목록');
+
+  // Sheet 2: 이미지 포함 (각 소재를 5행씩 차지, A열=이미지셀, B열=정보)
+  setProg(78,'이미지 시트 생성 중...');
+  await sleep(50);
+
+  const ws2=XLSX.utils.book_new_sheet ? null : {};
+  const aoa2=[];
+  // header
+  aoa2.push(['미리보기','캠페인명','광고 세트명','소재명','타입','Hash / Video ID','업로드 날짜']);
+
+  const wbImg=XLSX.utils.book_new();
+  const ws2data=[['미리보기','캠페인명','광고 세트명','소재명','타입','Hash / Video ID','업로드 날짜']];
+  list.forEach(c=>ws2data.push([
+    imgMap[c.id]?'(이미지 참조)':'',
+    c.campName, c.adsetName, c.name,
+    c.type==='image'?'이미지':'영상',
+    c.type==='image'?(c.hash||''):(c.videoId||''),
+    fmtDate(c.created)
+  ]));
+
+  const wsImg=XLSX.utils.aoa_to_sheet(ws2data);
+  wsImg['!cols']=[{wch:22},{wch:26},{wch:26},{wch:30},{wch:8},{wch:36},{wch:13}];
+  wsImg['!rows']=[{hpt:20},...list.map(()=>({hpt:60}))];
+
+  // Embed images using XLSX image extension (base64 inline)
+  if(!wsImg['!images']) wsImg['!images']=[];
+  list.forEach((c,i)=>{
+    const b64=imgMap[c.id];
+    if(b64){
+      // strip data:image/...;base64, prefix
+      const raw=b64.split(',')[1];
+      wsImg['!images'].push({
+        name:`img_${i}.jpeg`,
+        data:raw,
+        opts:{base64:true},
+        position:{type:'twoCellAnchor',attrs:{editAs:'oneCell'},
+          from:{col:0,colOff:0,row:i+1,rowOff:0},
+          to:{col:1,colOff:0,row:i+2,rowOff:0}}
+      });
+    }
+  });
+  XLSX.utils.book_append_sheet(wbImg,wsImg,'소재+이미지');
+  XLSX.utils.book_append_sheet(wbImg,ws,'소재 목록');
+
+  setProg(92,'파일 저장 중...');
   await sleep(60);
 
-  const ts=new Date().toISOString().slice(0,16).replace('T',' ');
-  const rows=list.map((c,i)=>{
-    const img=imgMap[c.id]?`<img src="${imgMap[c.id]}" style="width:90px;height:90px;object-fit:cover;border-radius:6px;display:block;">`:'<div style="width:90px;height:90px;background:#eee;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;">'+(c.type==='image'?'🖼':'🎬')+'</div>';
-    const bg=i%2===0?'#ffffff':'#f7f8fc';
-    return `<tr style="background:${bg}">
-      <td style="padding:10px;text-align:center;vertical-align:middle;">${img}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:12px;color:#444;">${c.campName||''}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:12px;color:#444;">${c.adsetName||''}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:12px;font-weight:600;color:#111;">${c.name||''}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:11px;color:#666;text-align:center;">${c.type==='image'?'이미지':'영상'}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:11px;color:#666;text-align:center;">${c.type==='image'?(c.w&&c.h?c.w+'×'+c.h:''):(c.duration||'')}</td>
-      <td style="padding:10px;vertical-align:middle;font-size:11px;color:#888;text-align:center;">${fmtDate(c.created)}</td>
-    </tr>`;
-  }).join('');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,16);
+  XLSX.writeFile(wbImg,`meta_creatives_${ts}.xlsx`);
 
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-<title>Meta Creative Report ${ts}</title>
-<style>
-  body{font-family:'Apple SD Gothic Neo',Arial,sans-serif;background:#f0f2f7;margin:0;padding:24px;}
-  .wrap{max-width:1200px;margin:0 auto;}
-  h1{font-size:20px;color:#1a1a2e;margin-bottom:4px;}
-  .sub{font-size:12px;color:#888;margin-bottom:20px;}
-  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);}
-  th{background:#1e1e2e;color:#c9d1f5;padding:12px 10px;font-size:11px;font-weight:600;text-align:left;letter-spacing:.05em;text-transform:uppercase;}
-  th:first-child{text-align:center;width:110px;}
-  td{border-bottom:1px solid #eef0f6;}
-  tr:last-child td{border-bottom:none;}
-  tr:hover{background:#f0f4ff!important;}
-</style></head><body>
-<div class="wrap">
-  <h1>📋 Meta Creative Report</h1>
-  <div class="sub">생성일시: ${ts} · 소재 수: ${total}개</div>
-  <table>
-    <thead><tr>
-      <th>미리보기</th><th>캠페인명</th><th>광고 세트명</th><th>소재명</th><th>타입</th><th>해상도</th><th>업로드 날짜</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-</div></body></html>`;
-
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`meta_creatives_${ts.replace(' ','_').replace(':','-')}.html`;
-  a.click();
-
-  setProg(100,`✅ ${total}개 소재 완료!`);
+  setProg(100,`✅ ${total}개 소재 저장 완료!`);
   g('mt').textContent='✅ 다운로드 완료!';
-  g('md').textContent=`${total}개 소재 리포트가 저장되었습니다. 브라우저에서 열거나 Excel로 열 수 있습니다.`;
+  g('md').textContent=`${total}개 소재 데이터가 엑셀 파일로 저장되었습니다.\n소재 목록과 이미지 시트 두 가지가 포함되어 있습니다.`;
   g('mcls').style.display='block';
 }
 
@@ -451,17 +487,6 @@ async function api(path,tok){
   const sep=path.includes('?')?'&':'?';
   const r=await fetch(`https://graph.facebook.com/v23.0${path}${sep}access_token=${tok}`);
   const d=await r.json(); if(d.error) throw new Error(d.error.message); return d;
-}
-async function apiAll(path,tok){
-  let all=[],url=`https://graph.facebook.com/v23.0${path}${(path.includes('?')?'&':'?')}access_token=${tok}`;
-  while(url){
-    const r=await fetch(url);
-    const d=await r.json();
-    if(d.error) throw new Error(d.error.message);
-    all=all.concat(d.data||[]);
-    url=d.paging?.next||null;
-  }
-  return all;
 }
 function setDot(cls,msg){g('dot').className='dot '+cls;g('stxt').textContent=msg;}
 function setIcon(id,v){const el=g(id);el.innerHTML=v==='spin'?'<span class="sp-i"></span>':v;}
