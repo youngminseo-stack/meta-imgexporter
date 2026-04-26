@@ -159,6 +159,13 @@ input::placeholder{color:var(--tx3)}
   <div class="sb-body">
 
     <div class="fl">
+      <div class="fl-lbl">Railway 서버 URL</div>
+      <input type="text" id="server-url" placeholder="https://xxxx.railway.app" style="font-size:10px;color:#7aa3ff"/>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="fl">
       <div class="fl-lbl">Access Token</div>
       <input type="password" id="tok" placeholder="EAAxxxxxxxx..."/>
     </div>
@@ -347,10 +354,51 @@ function renderGrid(){
 function togItem(id){sel.has(id)?sel.delete(id):sel.add(id);document.getElementById('c'+id)?.classList.toggle('sel',sel.has(id));updSel();}
 function selAll(){items.forEach(c=>sel.add(c.id));renderGrid();updSel();}
 function selNone(){sel.clear();renderGrid();updSel();}
-function updSel(){const n=sel.size;g('scnt').textContent=n;g('selbar').classList.toggle('on',n>0);g('exbtn').disabled=n===0;}
+function updSel(){const n=sel.size;g('scnt').textContent=n;g('selbar').classList.toggle('on',n>0);g('exbtn').disabled=n===0;
+  if(g('exbtn2')) g('exbtn2').disabled=n===0;}
 
 // ── export ──
-function startExport(){
+async function startExport(){
+  const serverUrl=(g('server-url')?.value||'').trim().replace(/\/$/,'');
+  if(!serverUrl) return alert('Railway 서버 URL을 입력하세요.\n예: https://your-app.railway.app');
+  const formats=[];
+  if(g('fmt-html')?.checked)  formats.push('html');
+  if(g('fmt-excel')?.checked) formats.push('excel');
+  if(g('fmt-ppt')?.checked)   formats.push('ppt');
+  if(!formats.length) return alert('형식을 하나 이상 선택하세요.');
+  const list=ads.filter(a=>sel.has(a.id));
+  if(!list.length) return alert('광고를 선택하세요.');
+  g('mwrap').classList.add('on');
+  g('mt').textContent='📸 서버에서 처리 중...';
+  g('md').textContent=`Railway 서버에서 ${list.length}개 광고를 캡처합니다.\n수 분이 걸릴 수 있어요.`;
+  g('mcls').style.display='none';
+  setProg(10,'서버로 요청 전송 중...');
+  let prog=10;
+  const iv=setInterval(()=>{if(prog<88){prog+=0.4;setProg(prog,`서버 처리 중... (${list.length}개 캡처)`);}},1000);
+  try{
+    const resp=await fetch(`${serverUrl}/export`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:W.tok,formats,ads:list.map(a=>({id:a.id,name:a.name,status:a.status,adsetName:a.adsetName,campName:a.campName,thumbUrl:a.thumbUrl}))})
+    });
+    clearInterval(iv);
+    if(!resp.ok){const e=await resp.json().catch(()=>({error:'서버 오류'}));throw new Error(e.error||`HTTP ${resp.status}`);}
+    setProg(95,'파일 다운로드 중...');
+    const blob=await resp.blob();
+    const a2=document.createElement('a');
+    const ts=new Date().toISOString().slice(0,16).replace('T','_').replace(':','');
+    a2.href=URL.createObjectURL(blob); a2.download=`meta_export_${ts}.zip`; a2.click();
+    setProg(100,'✅ 완료!');
+    g('mt').textContent='✅ 다운로드 완료!';
+    g('md').textContent=`${list.length}개 광고가 ZIP으로 저장됐습니다.`;
+    g('mcls').style.display='block';
+  }catch(er){
+    clearInterval(iv);
+    g('mt').textContent='❌ 오류';
+    g('md').textContent=`오류: ${er.message}`;
+    g('mcls').style.display='block'; setProg(0,'');
+  }
+}
+function _startExport_old(){
   if(!sel.size) return;
   g('mwrap').classList.add('on');
   g('mt').textContent='📊 엑셀 생성 중...';
